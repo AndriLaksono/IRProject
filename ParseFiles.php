@@ -55,13 +55,15 @@ ini_set('max_execution_time', 0);
 			 //put the filtered content in the file and save the file in a new folder Results
 			 file_put_contents($directory.$filename, $finalStripped);
 			 
-			 $i++;
+			 
 			 
 			 //must check, not sure what permission level is this
 			 chmod($directory.$filename, 0644);
 			 
 			 //output the link
 			 echo $i.". ".'<a href="'.$directory.$filename.'">'.$filename.'</a><br/>';
+			 
+			 $i++;
 		}	   
 		else{
 			//get the name of the file and store it in an array

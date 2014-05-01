@@ -9,7 +9,7 @@
 
 <?php
 
-ini_set('memory_limit', '512M');
+ini_set('memory_limit', '1024M');
 
 function createTfIDF(){
 	//get the posting list from boolean model to create tf-idf matrix
