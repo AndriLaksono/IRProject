@@ -103,7 +103,7 @@ function findDocument(){
 		$docRank = array();
 	
 		//stores document status, if the document contains none of the query words, the status is 0 else 1
-		//$QDsimilarity = array_fill(1,$N,0);
+		$QDsimilarity = array_fill(1,$N,0);
 
 		
     	$query = $_GET['searchTextBox'];
@@ -162,8 +162,19 @@ function findDocument(){
 			//exit(0);
 			
 			//find query document similarity vector
-			$QDsimilarity = QDSimilarityVector($queryFinal,$TfIdf,$tokeIndex,$qVector,$N);
-			
+			for($i=0;$i<count($queryFinal);$i++){
+				
+				$token = $TfIdf[$queryFinal[$i]];
+				
+				//find document index and add the partial values from dot product
+				foreach($token as $key => $value){
+					if($key > 0 && $key<=$N){
+						$QDsimilarity[$key] = $QDsimilarity[$key]+$value*$qVector[$tokeIndex[$queryFinal[$i]]];
+					}
+					
+				}
+			}
+
 			//sort query document vector
 			arsort($QDsimilarity);
 			//echo "<br />";
@@ -193,22 +204,6 @@ function findDocument(){
 		echo "<br /><br />";
 		returnDoc();
 	}
-}
-
-//find query document similarity vector
-function QDSimilarityVector($queryFinal,$TfIdf,$tokeIndex,$qVector,$N){
-	$QDsimilarity = array_fill(1,$N,0);
-	for($i=0;$i<count($queryFinal);$i++){
-		$token = $TfIdf[$queryFinal[$i]];
-		//find document index and add the partial values from dot product
-		foreach($token as $key => $value){
-			if($key > 0 && $key<=$N){
-				$QDsimilarity[$key] = $QDsimilarity[$key]+$value*$qVector[$tokeIndex[$queryFinal[$i]]];
-			}
-					
-		}
-	}
-	return $QDsimilarity;
 }
 
 //count number of docs with non-zero value
@@ -266,7 +261,13 @@ function returnDoc(){
 	for($i=$pages->low;$i<=$pages->high;$i++){
 			if($i<$numD){
 				display($docIndex[$docRank[$i]],$query);
-			}			
+			}
+		
+			//$nakedFile = preg_replace("/docs\//","",$docIndex[$docRank[$i]]);
+			//$nakedFile = substr_replace($nakedFile,"",-4,4);
+			
+			//echo "<li>", '<a href="'.$docIndex[$docRank[$i]].'">'.$nakedFile.'</a></li>';
+			
 	}
 	echo "</ul></div>";
 	echo "<br>";
@@ -274,74 +275,94 @@ function returnDoc(){
 }
 
 function display($document,$query){
-	
-	// Get file content
+	// Get Image and surrounding text
     $file = file_get_contents($document);
 	
 	$nakedFile = preg_replace("/docs\//","",$document);
 	$nakedFile = substr_replace($nakedFile,"",-4,4);
 	
-	//get the title of the page if exists
 	if (preg_match("/<title>(.+)<\/title>/",$file,$matches) && isset($matches[1]))
    		$title = $matches[1];
 	else
    		$title = $nakedFile;
    
     $idxs = array();
-	$re = "?";
+    //$re = '/(?<= [.!?] | [.!?][\'"])(?<!Mr\.|Mrs\.|Ms\.|Jr\.|Dr\.|Prof\.|Sr\.|St\.|\s[a-z]\.)\s+/ix';
+	$re = '?';
     $stripped = preg_replace("/\r|\n/"," ",$file);
+    //$stripped = preg_replace("<script.*?/script>","",$file);
 	$stripped = preg_replace("~<\s*\bscript\b[^>]*>(.*?)<\s*\/\s*script\s*>~is","",$stripped);
 	$stripped = preg_replace("~<\s*\bstyle\b[^>]*>(.*?)<\s*\/\s*style\s*>~is","",$stripped);
     $stripped = strip_tags($stripped);
 	$stripped = strtolower($stripped);
 	$stripped = preg_replace("/[^a-zA-Z ]/","?",$stripped);
 	$sentences = explode($re, $stripped);
-    
-	//store the sentence with query term
+    //$sentences = preg_split($re, $stripped, -1, PREG_SPLIT_NO_EMPTY);
+	//print_r ($sentences);
+	//exit(0);
+
+    //$queries = $query;
+    //$shouldBreak = false;
 	$description = "";
-	
-	$maxQ = 0;
-	$maxS = 0;
+	//$numOfSent = 1;
+	$max = 0;
+
 	foreach ($sentences as $s){
-		
 		$numOfWords = 0;
-		$newQ = array();
+		//$counter = 0;
+		$newQ = "";
 		$flag = false;
-		$midWord = "";
-		foreach ( $query as $q){			
-			if (strpos($s,$q) != false) {
-				$newQ[] = $q;
-			}
+		foreach ( $query as $q){
 			
-		}
-		$slen = strlen($s);
+		/*if($shouldBreak){
+			break;
+		}*/
 		
-		//make query words in the sentense bold	(do it for the sentence where max number of query word is found)
-		for($i=0;$i<count($newQ) && count($newQ)>=$maxQ; $i++){
-			
-			//also choose the longes sentence that has the query term/s
-			if($slen >= $maxS){
-				$description = $description." ".$s;
+	
+		
+			/*$match = preg_match($pattern,$s);
+			if($match == 1){
+				$description = preg_replace($pattern,"$1",$s);
+				$description = preg_replace("|(".$q.")|i","<b>$1</b>",$description);
+				if (strlen( $description) <= (strlen($q) + 200) && strlen($description) > 1){
+					$shouldBreak = true;
+					break;
+				}
+			}*/
+			if (strpos($s,$q) !== false) {
+				if($numOfWords == 0)
+					$newQ = $newQ.$q;
+				else
+					$newQ = $newQ." ".$q;
+				$numOfWords++;
 				$flag = true;
-				$maxS = $slen;
+				
+				//$tempDesc = preg_replace($pattern,"$1",$s);
+				//$description = preg_replace("|(".$q.")|i","<b>$1</b>",$description);
+				//$boldQ = "<b>".$q."</b>";
+				//$tempDesc = preg_replace('|('.$q.')|','<b>$1</b>',$tempDesc);
+				//$description = $description.$tempDesc."...";
 			}
-			$maxQ = count($newQ);			
+			
 		}
+		
+		$pattern = "|.*?(.{1,100} ".$newQ." .{1,100}).*|i";
+		if ($flag && $numOfWords >= $max){
+			$description = preg_replace($pattern,"$1",$s);
+			$description = preg_replace("|(".$newQ.")|i","<b>$1</b>",$description);
+			
+			//if (strlen( $description) <= (strlen($newQ) + 200) && strlen($description) > 1){
+	
+			//}
+		}
+		
 	}
-	//echo $description;
 	
-	//Keep only first 30 words
-	$cutWords = "|((\w+[\s]+){1,30}).*|";
-	$description = preg_replace($cutWords,"$1",$description);
 	
-	//highlight the query terms in the sentence
-	foreach ( $query as $q){
-		$pattern = "|(".$q.")|";
-		$description = preg_replace($pattern,"$1",$description);
-		$description = preg_replace("|(".$q.")|"," <b>$1</b> ",$description);
-	}
 	
-	//Image Retrieval	
+	//shorten the description
+	$description = (strlen($description) >200) ? substr($description,0,199).'...' : $description;
+	
 	preg_match_all("|<img.*?>|",$file, $matches);
     $largest = -1;
     $img = "";
@@ -349,41 +370,51 @@ function display($document,$query){
     foreach ($matches[0] as $elem){
 		$width = preg_replace("|.*width=[ ]*\"(.*?)\".*|","$1",$elem);
 		$height = preg_replace("|.*height=[ ]*\"(.*?)\".*|","$1",$elem);
-		
-		if (strlen ($width) > 5){
+		if (strLen ($width) > 5){
 			$width = -1;
 			$height= -1;
 		} 
-		$tmp = $width * $height;
-		
+		if ( $width > $height ){
+			$tmp = $width;   
+		}else{
+			$tmp = $height;
+		}
 		if ($tmp > $largest){
 			$largest = $tmp;
 			$img = $elem;
 			
 		}
 	}
-            
-	//Display  
-	$divE = "<div class='a_'>";
-    $imgE = "<div class='a_img'>".$img."</div>";
-    $descE = "<div class='a_desc'>".ucfirst($description)."...</div></div></li>";
-	$newLine = "";
-
-    if ($img == NULL){
-    $divE = "<div class='a_no_image'>";
-    $imgE = "";
-	$newLine = "<br />";
-    }  
-    if ($description == null){
-    $descE = "<div class='a_desc'>No description available</div></div>";
-    }  
-
-    echo "<li>"."<a href='".$document."'>".$title."</a>";
-    echo $divE;
-    echo $imgE;
-    echo $descE;
-	echo $newLine;
-	echo "</li>";
+                    
+	if($description != NULL && $img!= NULL){
+		echo "<li>"."<a href='".$document."'>".$title."</a><div class='a_'>";
+			
+		echo "<div class='a_img'>".$img."</div>";
+		echo "<div class='a_desc'>".ucfirst($description)." ...</div></div></li>";
+		
+	}
+	else if($description != NULL && $img== NULL){
+		echo "<li>"."<a href='".$document."'>".$title."</a><div class='a_no_image'>";
+		//echo '<div class="a_img">'.$img."</div>";
+		echo "<div class='a_desc'>".ucfirst($description)." ...</div></div>";
+		echo "</li>";
+	}
+	else if($description == NULL && $img!= NULL){
+		echo "<li>"."<a href='".$document."'>".$title."</a>";
+			
+			
+		echo "<div class='a_'><div class='a_img'>".$img."</div>";
+		echo "<div class='a_desc'>No description available</div></div>";
+		echo "</li>";
+	}
+	else if($description == NULL && $img== NULL){
+		echo "<li>"."<a href='".$document."'>".$title."</a><div class='a_no_image'>";
+		
+			
+		//echo '<div class="a_img">'.$img."</div>";
+		echo "<div class='a_desc'>No description available</div></div>";
+		echo "</li>";
+	}
 	
 }
 
